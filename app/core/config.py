@@ -10,5 +10,6 @@ class Settings(BaseSettings):
 
     default_country: str = "us"
     max_reviews: int = 500
+    sample_size: int = 100
 
 settings = Settings()

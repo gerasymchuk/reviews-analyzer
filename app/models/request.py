@@ -5,7 +5,7 @@ class ScrapeRequest(BaseModel):
     app_id: str = Field(..., description="Apple App Store app ID, e.g. '284882215' or 'id284882215'")
     country: str = Field(default=settings.default_country,description="Two-letter country code")
     max_reviews: int = Field(default=settings.max_reviews, ge=50, le=settings.max_reviews)
-    sample_size: int = Field(default=settings.sample_size, ge=1, description="If set, return a random sample of this size")
+    sample_size: int = Field(default=settings.sample_size, ge=1, le=settings.max_reviews, description="If set, return a random sample of this size")
 
     @field_validator("app_id")
     @classmethod

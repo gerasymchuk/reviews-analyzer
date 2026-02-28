@@ -50,7 +50,7 @@ async def scrape_reviews(request: ScrapeRequest) -> list[Review]:
     for i, result in enumerate(results, start=1):
         if isinstance(result, Exception):
             logger.warning("Page %d failed: %s", i, result)
-            break
+            continue
         if not result:
             logger.info("Page %d empty, stopping", i)
             break

@@ -5,28 +5,11 @@ class SentimentLabel(str, Enum):
     negative = "negative"
     neutral = "neutral"
     positive = "positive"
-    mixed = "mixed"
 
 class Priority(str, Enum):
     high = "high"
     medium = "medium"
     low = "low"
-
-class Category(str, Enum):
-    bug = "bug"
-    performance = "performance"
-    ui_ux = "ui_ux"
-    feature_request = "feature_request"
-    pricing = "pricing"
-    stability = "stability"
-    security = "security"
-    other = "other"
-
-class InsightType(str, Enum):
-    complaint = "complaint"
-    praise = "praise"
-    suggestion = "suggestion"
-    question = "question"
 
 class Review(BaseModel):
     title: str = Field(..., description='Title of the review')
@@ -34,18 +17,20 @@ class Review(BaseModel):
     rating: int = Field(..., ge=1, le=5, description='Rating score of the review from 1 to 5')
 
 class SentimentResult(BaseModel):
-    sentiment: SentimentLabel = Field(..., description="Overall sentiment of the review (negative, neutral, positive, or mixed).")
-    summary: str = Field(..., description="Brief summary of the review sentiment")
-    topics: list[Category] = Field(..., description="Main topics mentioned in the review")
+    review_index: int = Field(..., description="0-based index of the review in the provided list")
+    sentiment: SentimentLabel = Field(..., description="Overall sentiment of the review (negative, neutral or positive).")
 
 class Insight(BaseModel):
-    category: Category = Field(..., description="Feedback category that best matches the insight")
+    topic: str = Field(..., description="Feedback topic that best matches the insight")
     priority: Priority = Field(..., description="Priority level based on frequency and user impact")
-    insight_type: InsightType = Field(..., description="Type of insight: complaint, praise, suggestion, or question")
-    detail: str = Field(..., description="Concise description of the insight")
-    mentions_count: int = Field(...,ge=1, description="How many reviews mention this")
+    recommendation: str = Field(..., description="Actionable suggestion on how to address this")
+    keywords: list[str] = Field(default_factory=list, description="Common words/phrases from reviews related to this insight")
 
 
 class AppInsights(BaseModel):
-    overall_sentiment: SentimentLabel = Field(...,description="Dominant sentiment across all reviews")
+    negative_keywords: list[str] = Field(default_factory=list, description="Most frequent keywords across negative reviews")
     insights: list[Insight] = Field(..., description="Key insights extracted from the reviews")
+
+class AnalysisResult(BaseModel):
+    sentiments: list[SentimentResult]
+    insights: AppInsights

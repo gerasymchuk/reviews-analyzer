@@ -9,9 +9,10 @@ import logging
 logger = logging.getLogger(__name__)
 
 MODEL_SETTINGS = {"temperature": 0.0}
+_model = get_model()
 
 sentiment_agent = Agent(
-    model=get_model(),
+    model=_model,
     output_type=list[SentimentResult],
     retries=3,
     instructions=
@@ -26,7 +27,7 @@ sentiment_agent = Agent(
 )
 
 insights_agent = Agent(
-    model=get_model(),
+    model=_model,
     output_type=AppInsights,
     retries=3,
     instructions=

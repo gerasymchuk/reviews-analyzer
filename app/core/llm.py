@@ -37,8 +37,10 @@ def _build_model() -> Model:
                 model_name=settings.llm_model,
                 provider=AnthropicProvider(api_key=settings.anthropic_api_key)
             )
-        case _: #local -> Ollama
+        case 'ollama':
             return OpenAIChatModel(
                 model_name=settings.llm_model,
                 provider=OllamaProvider(base_url=settings.ollama_url, api_key=settings.ollama_api_key)
             )
+        case _:
+            raise ValueError(f"Unknown LLM provider: '{settings.llm_provider}'")

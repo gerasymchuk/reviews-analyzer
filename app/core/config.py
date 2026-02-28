@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     openai_api_key: str | None = None
     anthropic_api_key: str | None = None
     google_api_key: str | None = None
-    ollama_api_key: str | None
+    ollama_api_key: str | None = None
 
     default_country: str = "us"
     max_reviews: int = 500

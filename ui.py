@@ -1,16 +1,12 @@
-import csv
+import os
 import tempfile
 import logging
 
 import gradio as gr
+import httpx
 import plotly.graph_objects as go
 
-from app.models.request import ScrapeRequest
-from app.models.review import Review, SentimentLabel
-from app.services.scraper import scrape_reviews
-from app.services.preprocess import preprocess_reviews
-from app.services.analyzer import analyze_reviews
-from app.services.metrics import get_metrics
+API_URL = os.getenv("API_URL", "https://reviewsanalyzer-986693471676.europe-west1.run.app")
 
 logging.basicConfig(
     level=logging.INFO,
@@ -20,23 +16,24 @@ logging.basicConfig(
 COUNTRIES = ["us", "ua", "gb", "de", "fr", "jp", "ca", "au", "pl", "nl"]
 FONT = dict(family="Helvetica, Arial, sans-serif")
 
-async def _scrape(app_id: str, country: str, max_reviews: int, sample_size: int) -> list[Review]:
-    request = ScrapeRequest(
-        app_id=app_id,
-        country=country,
-        max_reviews=max_reviews,
-        sample_size=sample_size,
-    )
-    return await scrape_reviews(request)
 
-def _rating_chart(distribution) -> go.Figure:
-    stars = [f"{d.star} ★" for d in distribution]
-    counts = [d.count for d in distribution]
+def _request_body(app_id: str, country: str, max_reviews: int, sample_size: int) -> dict:
+    return {
+        "app_id": app_id.strip(),
+        "country": country,
+        "max_reviews": int(max_reviews),
+        "sample_size": int(sample_size),
+    }
+
+
+def _rating_chart(distribution: list[dict]) -> go.Figure:
+    stars = [f"{d['star']} ★" for d in distribution]
+    counts = [d["count"] for d in distribution]
     colors = ["#b91c1c", "#c2742e", "#a08a2e", "#6b8e3a", "#3a7d44"]
 
     fig = go.Figure(go.Bar(
         x=stars, y=counts,
-        text=[f"{d.percentage}%" for d in distribution],
+        text=[f"{d['percentage']}%" for d in distribution],
         textposition="outside",
         textfont=FONT,
         marker_color=colors,
@@ -53,8 +50,9 @@ def _rating_chart(distribution) -> go.Figure:
     )
     return fig
 
-def _sentiment_chart(sentiment_dist: dict[SentimentLabel, int]) -> go.Figure:
-    labels = [s.value.capitalize() for s in sentiment_dist]
+
+def _sentiment_chart(sentiment_dist: dict[str, int]) -> go.Figure:
+    labels = [k.capitalize() for k in sentiment_dist]
     values = list(sentiment_dist.values())
     colors = ["#b91c1c", "#a3a3a3", "#3a7d44"]
 
@@ -78,16 +76,16 @@ def _sentiment_chart(sentiment_dist: dict[SentimentLabel, int]) -> go.Figure:
     return fig
 
 
-def _format_insights(insights) -> str:
+def _format_insights(insights: dict) -> str:
     priority_badge = {"high": "🔴 High", "medium": "🟡 Medium", "low": "🟢 Low"}
     lines = []
-    for i, insight in enumerate(insights.insights, 1):
-        badge = priority_badge.get(insight.priority.value, insight.priority.value)
-        keywords = ", ".join(f"`{k}`" for k in insight.keywords)
+    for i, insight in enumerate(insights["insights"], 1):
+        badge = priority_badge.get(insight["priority"], insight["priority"])
+        keywords = ", ".join(f"`{k}`" for k in insight["keywords"])
         lines.append(
-            f"### {i}. {insight.topic}\n"
+            f"### {i}. {insight['topic']}\n"
             f"**Priority:** {badge}\n\n"
-            f"**Recommendation:** {insight.recommendation}\n\n"
+            f"**Recommendation:** {insight['recommendation']}\n\n"
             f"**Keywords:** {keywords}\n\n---\n"
         )
     return "\n".join(lines)
@@ -99,13 +97,13 @@ def _format_keywords(keywords: list[str]) -> str:
     return " ".join(f"`{k}`" for k in keywords)
 
 
-def _format_metrics_summary(metrics) -> str:
+def _format_metrics_summary(metrics: dict) -> str:
     return (
         f"## Metrics Summary\n\n"
         f"| Metric | Value |\n"
         f"|--------|-------|\n"
-        f"| Total reviews analysed | **{metrics.total_reviews}** |\n"
-        f"| Average rating | **{metrics.average_rating} / 5** |\n"
+        f"| Total reviews analysed | **{metrics['total_reviews']}** |\n"
+        f"| Average rating | **{metrics['average_rating']} / 5** |\n"
     )
 
 
@@ -115,19 +113,23 @@ async def run_analysis(app_id, country, max_reviews, sample_size):
     if not app_id.strip():
         raise gr.Error("App ID is required")
 
-    reviews = await _scrape(app_id, country, int(max_reviews), int(sample_size))
-    if not reviews:
-        raise gr.Error(f"No reviews found for app {app_id}")
+    async with httpx.AsyncClient(timeout=300) as client:
+        resp = await client.post(f"{API_URL}/analyse", json=_request_body(app_id, country, max_reviews, sample_size))
 
-    preprocessed = preprocess_reviews(reviews)
-    analysis = await analyze_reviews(preprocessed)
-    metrics = get_metrics(preprocessed, analysis.sentiments)
+    if resp.status_code == 404:
+        raise gr.Error(f"No reviews found for app {app_id}")
+    if resp.status_code != 200:
+        raise gr.Error(f"API error: {resp.json().get('detail', resp.text)}")
+
+    data = resp.json()
+    metrics = data["metrics"]
+    insights = data["insights"]
 
     summary_md = _format_metrics_summary(metrics)
-    rating_fig = _rating_chart(metrics.rating_distribution)
-    sentiment_fig = _sentiment_chart(metrics.sentiment_distribution)
-    keywords_md = _format_keywords(analysis.insights.negative_keywords)
-    insights_md = _format_insights(analysis.insights)
+    rating_fig = _rating_chart(metrics["rating_distribution"])
+    sentiment_fig = _sentiment_chart(metrics["sentiment_distribution"])
+    keywords_md = _format_keywords(insights["negative_keywords"])
+    insights_md = _format_insights(insights)
 
     return summary_md, rating_fig, sentiment_fig, keywords_md, insights_md
 
@@ -138,11 +140,16 @@ async def run_collect(app_id, country, max_reviews, sample_size):
     if not app_id.strip():
         raise gr.Error("App ID is required")
 
-    reviews = await _scrape(app_id, country, int(max_reviews), int(sample_size))
-    if not reviews:
-        raise gr.Error(f"No reviews found for app {app_id}")
+    async with httpx.AsyncClient(timeout=120) as client:
+        resp = await client.post(f"{API_URL}/collect", json=_request_body(app_id, country, max_reviews, sample_size))
 
-    rows = [[r.rating, r.title, r.content] for r in reviews]
+    if resp.status_code == 404:
+        raise gr.Error(f"No reviews found for app {app_id}")
+    if resp.status_code != 200:
+        raise gr.Error(f"API error: {resp.json().get('detail', resp.text)}")
+
+    reviews = resp.json()["reviews"]
+    rows = [[r["rating"], r["title"], r["content"]] for r in reviews]
     return gr.update(value=rows, visible=True)
 
 
@@ -152,17 +159,16 @@ async def run_download(app_id, country, max_reviews, sample_size):
     if not app_id.strip():
         raise gr.Error("App ID is required")
 
-    reviews = await _scrape(app_id, country, int(max_reviews), int(sample_size))
-    if not reviews:
-        raise gr.Error(f"No reviews found for app {app_id}")
+    async with httpx.AsyncClient(timeout=120) as client:
+        resp = await client.post(f"{API_URL}/download", json=_request_body(app_id, country, max_reviews, sample_size))
 
-    tmp = tempfile.NamedTemporaryFile(
-        mode="w", suffix=".csv", delete=False, prefix="reviews_",
-    )
-    writer = csv.DictWriter(tmp, fieldnames=["title", "content", "rating"])
-    writer.writeheader()
-    for r in reviews:
-        writer.writerow(r.model_dump())
+    if resp.status_code == 404:
+        raise gr.Error(f"No reviews found for app {app_id}")
+    if resp.status_code != 200:
+        raise gr.Error(f"API error: {resp.text}")
+
+    tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False, prefix="reviews_")
+    tmp.write(resp.text)
     tmp.flush()
     return gr.update(value=tmp.name, visible=True)
 

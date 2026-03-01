@@ -9,6 +9,11 @@ This is a REST API for analyzing app reviews from the Apple App Store.
 - Analyze reviews
 - Get actionable insights from reviews
 
+## Check it out!
+
+UI to interact with the API is available at [https://huggingface.co/spaces/gerasymchukm/reviews-analyzer](https://huggingface.co/spaces/gerasymchukm/reviews-analyzer).
+Google Cloud Run deployment is available at [https://reviews-analyzer-986693471676.europe-west1.run.app](https://reviews-analyzer-986693471676.europe-west1.run.app).
+
 ## Project structure
 
 ```
@@ -129,3 +134,10 @@ Returns unprocessed reviews as a CSV file.
 - **Preprocessing pipeline** — HTML unescape, unicode normalization, URL removal, duplicate filtering, and short review removal to reduce noise before sending to the LLM.
 - **Two-stage LLM analysis** — first, sentiment is classified per review (chunked and processed in parallel via `asyncio.gather` with a concurrency limit). Then, all reviews with their sentiments are passed to the insights agent for thematic analysis.
 - **LLM over traditional NLP** — classical sentiment libraries struggle with sarcasm, mixed-sentiment reviews, and context-dependent language common in app reviews. An LLM handles nuance better, and with pydantic-ai's structured output it returns typed results reliably. The trade-off is higher latency and cost, mitigated by sampling and chunked concurrent processing.
+
+## Report Example
+
+App ID: `585027354` - [Google Maps](https://apps.apple.com/us/app/google-maps/id585027354)
+
+![Report Example: Metrics](report_p1.png)
+![Report Example: Insights](report_p2.png)

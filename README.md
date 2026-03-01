@@ -13,7 +13,7 @@ This is a REST API for analyzing app reviews from the Apple App Store.
 
 UI to interact with the API is available at [https://huggingface.co/spaces/gerasymchukm/reviews-analyzer](https://huggingface.co/spaces/gerasymchukm/reviews-analyzer).
 
-Google Cloud Run deployment is available at [https://reviews-analyzer-986693471676.europe-west1.run.app](https://reviews-analyzer-986693471676.europe-west1.run.app).
+Google Cloud Run deployment is available at [https://reviewsanalyzer-986693471676.europe-west1.run.app](https://reviewsanalyzer-986693471676.europe-west1.run.app).
 
 ## Project structure
 

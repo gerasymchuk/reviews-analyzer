@@ -13,6 +13,17 @@ from app.api.routes import router
 app = FastAPI(title="Reviews Analyzer API")
 app.include_router(router)
 
+@app.get("/")
+async def root():
+    return {
+        "service": "Reviews Analyzer API",
+        "endpoints": {
+            "POST /collect": "Scrape and return raw reviews",
+            "POST /analyse": "Analyse reviews with LLM",
+            "POST /download": "Download reviews as CSV",
+        }
+    }
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["https://huggingface.co", "https://*.hf.space"],

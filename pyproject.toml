@@ -6,7 +6,9 @@ readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
     "fastapi>=0.133.1",
+    "gradio>=6.8.0",
     "httpx>=0.28.1",
+    "plotly>=6.5.2",
     "pydantic-ai>=1.63.0",
     "pydantic-settings>=2.13.1",
     "uvicorn>=0.41.0",

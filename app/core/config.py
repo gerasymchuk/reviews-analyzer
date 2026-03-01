@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     ollama_url: str = "https://ollama.com/v1"
 
     max_concurrency: int = 5
-    chunk_size: int = 5
+    chunk_size: int = 10
 
     openai_api_key: str | None = None
     anthropic_api_key: str | None = None
